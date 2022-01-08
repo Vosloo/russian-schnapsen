@@ -13,13 +13,13 @@ class Controller:
         self,
         source_path: Path,
         weights_path: Path,
-        verbose: bool = False,
+        verbose: bool,
     ) -> None:
         self._source_path = source_path
         self._verbose: bool = verbose
 
-        self.detector = Detector(source_path, weights_path)
-        self.game = Game()
+        self.detector = Detector(weights_path)
+        self.game = Game(verbose)
 
     def run(self):
         cap = cv2.VideoCapture(str(self._source_path))
@@ -32,10 +32,16 @@ class Controller:
                 break
 
             detected_cards = self.detector.detect_cards(frame)
-            if self._verbose:
-                print(detected_cards)
+            # if self._verbose and len(detected_cards.index) > 0:
+            #     print(detected_cards)
 
-            self.game.game_frame(detected_cards)
+            winner = self.game.game_frame(detected_cards)
+        
+        cap.release()
+        if winner is not None:
+            self.print_winner(winner)
+        else:
+            print("Winner has not been determined")
 
     def print_winner(self, winner):
         print(f"Player {winner.get_id()} won the game of Russian Schnapsen!")

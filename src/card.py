@@ -7,6 +7,9 @@ class Card:
         self._value, self._suit = card_class[:-1], card_class[-1]
         self._score = self._get_points()
 
+    def get_name(self):
+        return self._card_class
+
     def _get_points(self):
         return scores[self._value]
 
@@ -15,12 +18,21 @@ class Card:
 
     def get_value(self):
         return self._value
-    
+
     def get_suit(self):
         return self._suit
 
     def is_queen(self):
         return self._value == "Q"
+
+    def is_king(self):
+        return self._value == "K"
+
+    def __str__(self):
+        return self.get_name()
+
+    def __repr__(self):
+        return self.get_name()
 
     def __eq__(self, other: "Card"):
         return self._score == other.get_score()
