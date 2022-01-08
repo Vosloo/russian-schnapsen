@@ -1,2 +1,6 @@
-.vscode/*
-*__pycache__/*
+.vscode/
+*__pycache__/
+test*
+
+data/best.pt
+data/source.m4v
