@@ -22,9 +22,9 @@ def create_parser() -> ArgumentParser:
     parser.add_argument(
         "-v",
         "--verbose",
-        action="store_true",
+        choices=["silent", "info", "debug"],
         help="Prints debug information.",
-        default=False,
+        default="info",
     )
 
     return parser

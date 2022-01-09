@@ -3,6 +3,7 @@
 test*
 
 data/best.pt
-data/source.m4v
+data/cards_test.m4v
+data/russian_shnapsen.m4v
 
 yolov5/

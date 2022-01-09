@@ -5,14 +5,21 @@ from config import trumps
 
 
 class Player:
-    def __init__(self, id: int) -> None:
+    def __init__(self, id: int, biddings: List[int]) -> None:
         self._id: int = id
-        self._no_cards: int = 0  # TODO: Probably not needed?
+        self._no_cards: int = 0
         self._cards_won: List[int] = []
+        self._biddings: List[int] = biddings
         self._total_score: int = 0
 
     def get_id(self) -> int:
         return self._id
+
+    def pop_bidding(self) -> int:
+        if len(self._biddings) == 0:
+            return 0
+        else:
+            return self._biddings.pop(0)
 
     def get_total_score(self) -> int:
         return self._total_score

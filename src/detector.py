@@ -4,8 +4,7 @@ import pandas as pd
 import torch
 
 REPO = "ultralytics/yolov5"
-# REPO = "yolov5"
-MODEL = "custom"
+CUSTOM_MODEL = "custom"
 
 
 class Detector:
@@ -13,8 +12,7 @@ class Detector:
         self._model: Path = weights_path
 
         # Load the YOLO model
-        self.model = torch.hub.load(REPO, MODEL, path=weights_path)
-        # self.model = torch.hub.load(REPO, MODEL, path=weights_path, source="local")
+        self.model = torch.hub.load(REPO, CUSTOM_MODEL, path=weights_path)
 
     def detect_cards(self, frame) -> pd.DataFrame:
         """
