@@ -200,7 +200,10 @@ class Game:
             .filter(lambda x: len(x) > THRESHOLD)
         )
 
-        new_card = cut_cards.max().replace({np.nan: None})
+        cards_vals = cut_cards[NAME].value_counts().reset_index()
+        new_card = None
+        if not cards_vals.empty:
+            new_card, _ = cards_vals.iloc[cards_vals[NAME].idxmax()].replace({np.nan: None})
 
         if self._verbose == Verboser.DEBUG:
             print("\nDetected:", detected_set)
@@ -212,9 +215,9 @@ class Game:
                 )
                 print("Played in game:", self._cards_played)
 
-            print(f"New card: {new_card[NAME]}\n")
+            print(f"New card: {new_card}\n")
 
-        return new_card[NAME]
+        return new_card
 
     def _dealing_stage(self, detected_cards: pd.DataFrame):
         if self._verbose == Verboser.DEBUG:
@@ -275,10 +278,13 @@ class Game:
 
             self._cards_dealt.update({card})
 
-            self.players[self._card_for_player].increase_no_cards()
-            self._cards_in_stock -= 1
-            self._card_for_player += 1
-            self._card_for_player %= self._no_players
+            if self._cards_in_stock > 0:
+                self.players[self._card_for_player].increase_no_cards()
+                self._cards_in_stock -= 1
+                self._card_for_player += 1
+                self._card_for_player %= self._no_players
+            else:
+                raise Exception("Wrong detection, game cannot be continued!")
 
             if self._verbose in (Verboser.INFO, Verboser.DEBUG):
                 for player in self.players:
