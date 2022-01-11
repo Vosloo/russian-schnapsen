@@ -15,3 +15,12 @@ The model is trained on a dataset of 8,000 generated images with a medium-sized 
 <h3>Characteristics of the model:</h3>
 
 <img src="images/charts.png" alt="Characteristics" width="700"/>
+
+<br><h2>How to run the project:</h2>
+To run this project one needs to execute the main.py file in the src directory. The script has few options including "verbose" to show the output of the program, "source" and "weights" paths (which are mandatory) as well as other options. 
+
+The example of a script execution is as follows:
+```
+python src/main.py -v info -s data/source.m4v -w data/weights.pt
+```
+where the -v option is used to show the output of the program, -s option is used to specify the source of the video and -w option is used to specify the weights of the trained model. The paths to the source and weights can be arbitrary.
