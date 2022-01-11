@@ -4,6 +4,7 @@ from enum import Enum, unique
 @unique
 class State(Enum):
     DEALING = "DEALING"
+    STOCK = "STOCK"
     BIDDING = "BIDDING"
     PLAYING = "PLAYING"
     ENDED = "ENDED"

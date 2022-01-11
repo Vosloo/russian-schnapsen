@@ -24,6 +24,9 @@ class Player:
     def get_total_score(self) -> int:
         return self._total_score
 
+    def increase_no_cards(self) -> None:
+        self._no_cards += 1
+
     def get_no_cards(self) -> int:
         return self._no_cards
 

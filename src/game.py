@@ -10,10 +10,11 @@ from verboser import Verboser
 
 NAME = "name"
 CONFIDENCE = "confidence"
-THRESHOLD = 5
+THRESHOLD = 8
 
 BIDDINGS = [[110], [100, 120], []]
 NO_CARDS_IN_DECK = 24
+CARDS_IN_STOCK = 3
 
 
 class Game:
@@ -27,6 +28,8 @@ class Game:
         self.winner: Union[Player, None] = None
 
         self._cards_dealt: Set[str] = set()
+        self._card_for_player: int = 0
+        self._cards_in_stock: int = 0
 
         self._cards_played: Set[str] = set()
         self.current_trump: Union[str, None] = None
@@ -43,7 +46,6 @@ class Game:
         return None
 
     def _print_player_scores(self) -> None:
-        print()
         for player in self.players:
             print(player)
         print()
@@ -119,23 +121,27 @@ class Game:
             trump_suit = None
             pivot_card = None
             winning_player = None
+            king_card_ind = None
             for ind, card in enumerate(self._cards_in_round):
                 if card.is_queen():
                     if self._verbose == Verboser.DEBUG:
                         print("Card is queen, waiting for king")
 
                     trump_suit = card.get_suit()
+
                 elif card.is_king() and card.get_suit() == trump_suit:
                     if self._verbose == Verboser.DEBUG:
                         print("Detected king with the same suit, setting trump suit")
                     if self._verbose in (Verboser.INFO, Verboser.DEBUG):
-                        print("New trump suit:", trump_suit)
+                        print(f"\nNew trump suit: {trump_suit}")
 
+                    king_card_ind = ind
                     self.players[
                         (self._round_starting_player + ind - 1) % self._no_players
                     ].update_trump_score(trump_suit)
                     trump_suit = None
                     continue
+
                 elif trump_suit is not None:
                     if self._verbose == Verboser.DEBUG:
                         print("Card is not a king, no new trump suit")
@@ -146,8 +152,10 @@ class Game:
                     ind, card, winning_player, pivot_card
                 )
 
+            del self._cards_in_round[king_card_ind]
             winning_player.update_cards_won(self._cards_in_round)
-            # self._round_starting_player = winning_player.get_id()
+            if self._verbose in (Verboser.INFO, Verboser.DEBUG):
+                print(f"\nPlayer {winning_player.get_id()}. won the round!")
 
             return winning_player
 
@@ -160,16 +168,17 @@ class Game:
                 )
 
             winning_player.update_cards_won(self._cards_in_round)
-            # self._round_starting_player = winning_player.get_id()
             if self._verbose in (Verboser.INFO, Verboser.DEBUG):
-                print(f"\nPlayer {winning_player.get_id()} won the round!")
-            
+                print(f"\nPlayer {winning_player.get_id()}. won the round!")
+
             return winning_player
 
         else:
             raise Exception("Not enough cards in round!")
 
-    def _get_entering_card(self, detected_cards: pd.DataFrame, dealing=False) -> Union[str, None]:
+    def _get_entering_card(
+        self, detected_cards: pd.DataFrame, dealing=False
+    ) -> Union[str, None]:
         detected_set = set(detected_cards[NAME])
 
         if dealing:
@@ -202,13 +211,21 @@ class Game:
                     "In round:", [card.get_name() for card in self._cards_in_round],
                 )
                 print("Played in game:", self._cards_played)
-            print(f"Entering: {entering_card}\n")
+
+            print(f"New card: {new_card[NAME]}\n")
 
         return new_card[NAME]
 
     def _dealing_stage(self, detected_cards: pd.DataFrame):
         if self._verbose == Verboser.DEBUG:
             print("Dealing cards...")
+
+        if detected_cards.empty and (len(self._cards_dealt) == NO_CARDS_IN_DECK):
+            self._cards_dealt = set()
+            self._card_for_player = 0
+            if self._verbose in (Verboser.INFO, Verboser.DEBUG):
+                print("Entering bidding stage.\n")
+            self.set_state(State.BIDDING)
 
         card = self._get_entering_card(detected_cards, dealing=True)
         if card is None:
@@ -218,10 +235,58 @@ class Game:
         if self._verbose in (Verboser.INFO, Verboser.DEBUG):
             print("New card:", card)
 
+        if self._cards_in_stock < CARDS_IN_STOCK:
+            if self._card_for_player == self._no_players:
+                self._cards_in_stock += 1
+            else:
+                self.players[self._card_for_player].increase_no_cards()
+
+            self._card_for_player += 1
+            self._card_for_player %= self._no_players + 1
+
+        else:
+            self.players[self._card_for_player].increase_no_cards()
+            self._card_for_player += 1
+            self._card_for_player %= self._no_players
+
+        if self._verbose in (Verboser.INFO, Verboser.DEBUG):
+            print()
+            for player in self.players:
+                print(f"Player {player.get_id()}. has {player.get_no_cards()} cards")
+            print("-----------")
+            print(f"Cards in stock: {self._cards_in_stock}\n")
+
         self._cards_dealt.update({card})
 
-        if len(self._cards_dealt) == NO_CARDS_IN_DECK:
-            self.set_state(State.BIDDING)
+    def _stock_stage(self, detected_cards: pd.DataFrame):
+        if self._verbose == Verboser.DEBUG:
+            print("Stock stage...")
+
+        if detected_cards.empty and len(self._cards_dealt) == self._no_players:
+            if self._verbose in (Verboser.INFO, Verboser.DEBUG):
+                print("Entering playing stage.\n")
+            self.set_state(State.PLAYING)
+
+        else:
+            card = self._get_entering_card(detected_cards, dealing=True)
+            if card is None:
+                # No new card detected
+                return
+
+            self._cards_dealt.update({card})
+
+            self.players[self._card_for_player].increase_no_cards()
+            self._cards_in_stock -= 1
+            self._card_for_player += 1
+            self._card_for_player %= self._no_players
+
+            if self._verbose in (Verboser.INFO, Verboser.DEBUG):
+                for player in self.players:
+                    print(
+                        f"Player {player.get_id()}. has {player.get_no_cards()} cards"
+                    )
+                print("-----------")
+                print(f"Cards in stock: {self._cards_in_stock}\n")
 
     def _bidding_stage(self):
         if self._verbose == Verboser.DEBUG:
@@ -245,11 +310,18 @@ class Game:
 
         self._round_starting_player = winning_player.get_id()
         if self._verbose in (Verboser.INFO, Verboser.DEBUG):
-            print(f"Player {self._round_starting_player}. won the bid with the value {winning_bid}\n")
+            print(
+                f"Player {self._round_starting_player}. won the bid with the value {winning_bid}\n"
+            )
 
-        self.set_state(State.PLAYING)
+        if self._verbose in (Verboser.INFO, Verboser.DEBUG):
+            print("Entering stock stage.\n")
+        self.set_state(State.STOCK)
 
     def _playing_stage(self, detected_cards: pd.DataFrame):
+        if self._verbose == Verboser.DEBUG:
+            print("Playing stage...")
+
         if len(self._cards_in_round) >= self._no_players and detected_cards.empty:
             if self._verbose == Verboser.DEBUG:
                 print("\nRound ending, computing scores...")
@@ -263,7 +335,7 @@ class Game:
                 self.set_state(State.ENDED)
             else:
                 if self._verbose in (Verboser.INFO, Verboser.DEBUG):
-                    print("End of the round.")
+                    print("End of the round.\n")
                     self._print_player_scores()
 
                 if self._verbose == Verboser.DEBUG:
@@ -286,6 +358,9 @@ class Game:
     def game_frame(self, detected_cards) -> Union[None, Player]:
         if self.get_state() == State.DEALING:
             self._dealing_stage(detected_cards)
+
+        elif self.get_state() == State.STOCK:
+            self._stock_stage(detected_cards)
 
         elif self.get_state() == State.BIDDING:
             self._bidding_stage()

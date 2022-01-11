@@ -20,6 +20,13 @@ def create_parser() -> ArgumentParser:
         "-w", "--weights", required=True, help="Path to yolo pre-trained weights",
     )
     parser.add_argument(
+        "--no-show",
+        required=False,
+        action="store_true",
+        default=False,
+        help="Do not show video",
+    )
+    parser.add_argument(
         "-v",
         "--verbose",
         choices=["silent", "info", "debug"],
@@ -42,5 +49,5 @@ if __name__ == "__main__":
     if not weights_path.exists():
         raise FileNotFoundError("Weigths path invalid, file not found")
 
-    controller = Controller(source_path, weights_path, args.verbose)
+    controller = Controller(source_path, weights_path, args.verbose, args.no_show)
     controller.run()

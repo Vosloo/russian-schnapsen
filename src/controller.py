@@ -15,9 +15,10 @@ MERGE_FRAMES = 10
 
 
 class Controller:
-    def __init__(self, source_path: Path, weights_path: Path, verbose: str) -> None:
+    def __init__(self, source_path: Path, weights_path: Path, verbose: str, no_show: bool) -> None:
         self._source_path = source_path
         self._verbose: Verboser = Verboser(verbose)
+        self._no_show = no_show
 
         self.detector = Detector(weights_path)
         self.game = Game(verbose)
@@ -48,25 +49,26 @@ class Controller:
                     detected_cards, ignore_index=True
                 )
 
-            # Add labels to detection
-            for det_card in detected_cards.itertuples():
-                xmin, ymin, xmax, ymax = (
-                    int(det_card.xmin),
-                    int(det_card.ymin),
-                    int(det_card.xmax),
-                    int(det_card.ymax),
-                )
+            if not self._no_show:
+                # Add labels to detection
+                for det_card in detected_cards.itertuples():
+                    xmin, ymin, xmax, ymax = (
+                        int(det_card.xmin),
+                        int(det_card.ymin),
+                        int(det_card.xmax),
+                        int(det_card.ymax),
+                    )
 
-                cv2.rectangle(
-                    frame, (xmin, ymin), (xmax, ymax), (0, 128, 0), 2,
-                )
-                cv2.putText(
-                    frame, det_card.name, (xmin, ymin - 10), font, 2, (0, 128, 0), 2,
-                )
+                    cv2.rectangle(
+                        frame, (xmin, ymin), (xmax, ymax), (0, 128, 0), 2,
+                    )
+                    cv2.putText(
+                        frame, det_card.name, (xmin, ymin - 10), font, 2, (0, 128, 0), 2,
+                    )
 
-            cv2.imshow("frame", cv2.cvtColor(frame, cv2.COLOR_RGB2BGR))
-            if cv2.waitKey(25) & 0xFF == ord("q"):
-                break
+                cv2.imshow("frame", cv2.cvtColor(frame, cv2.COLOR_RGB2BGR))
+                if cv2.waitKey(25) & 0xFF == ord("q"):
+                    break
 
             if frame_counter % MERGE_FRAMES == 0:
                 winner = self.game.game_frame(detector_buffer)
