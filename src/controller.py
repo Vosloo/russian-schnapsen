@@ -12,6 +12,7 @@ from state import State
 from verboser import Verboser
 
 MERGE_FRAMES = 10
+INFO_RESET_DELAY = 50
 
 
 class Controller:
@@ -28,11 +29,27 @@ class Controller:
     def run(self):
         font = cv2.FONT_HERSHEY_PLAIN
         cap = cv2.VideoCapture(str(self._source_path))
+        
+        out = cv2.VideoWriter(
+            str(self._source_path.with_name(self._source_path.stem + "_out.avi")),
+            cv2.VideoWriter_fourcc(*"MJPG"),
+            30.0,
+            (1280, 720),
+        )
+
         if not cap.isOpened():
             raise RuntimeError("Could not open video")
 
         frame_counter = 0
         detector_buffer = None
+
+        overlay = {
+            "state": {"previous_value": State.DEALING, "value": None, "delay": 0},
+            "new_card": {"value": None, "delay": 0},
+            "subround_winner": {"value": None, "delay": 0},
+            "round_winner": {"value": None, "delay": 0},
+        }
+
         while cap.isOpened():
             ret, frame = cap.read()
             frame_counter += 1
@@ -51,33 +68,6 @@ class Controller:
                     detected_cards, ignore_index=True
                 )
 
-            if not self._no_show:
-                # Add labels to detection
-                for det_card in detected_cards.itertuples():
-                    xmin, ymin, xmax, ymax = (
-                        int(det_card.xmin),
-                        int(det_card.ymin),
-                        int(det_card.xmax),
-                        int(det_card.ymax),
-                    )
-
-                    cv2.rectangle(
-                        frame, (xmin, ymin), (xmax, ymax), (0, 128, 0), 2,
-                    )
-                    cv2.putText(
-                        frame,
-                        det_card.name,
-                        (xmin, ymin - 10),
-                        font,
-                        2,
-                        (0, 128, 0),
-                        2,
-                    )
-
-                cv2.imshow("frame", cv2.cvtColor(frame, cv2.COLOR_RGB2BGR))
-                if cv2.waitKey(25) & 0xFF == ord("q"):
-                    break
-
             if frame_counter % MERGE_FRAMES == 0:
                 try:
                     winner = self.game.game_frame(detector_buffer)
@@ -89,9 +79,117 @@ class Controller:
                 if winner is not None:
                     break
                 else:
-                    frame_counter = 0
                     detector_buffer = None
 
+            if not self._no_show:
+                # Add labels to detection
+                for det_card in detected_cards.itertuples():
+                    xmin, ymin, xmax, ymax = (
+                        int(det_card.xmin),
+                        int(det_card.ymin),
+                        int(det_card.xmax),
+                        int(det_card.ymax),
+                    )
+
+                    cv2.rectangle(
+                        frame, (xmin, ymin), (xmax, ymax), (255, 255, 255), 2,
+                    )
+                    cv2.putText(
+                        frame,
+                        det_card.name,
+                        (xmin, ymin - 10),
+                        font,
+                        2,
+                        (255, 255, 255),
+                        3,
+                        cv2.LINE_AA
+                    )
+
+                overlay_text = []
+                current_state = self.game.get_state()
+                if current_state in [State.DEALING, State.STOCK, State.BIDDING]:
+                    overlay_text = [
+                        f"Player {player.get_id()}. has {player.get_no_cards()} cards"
+                        for player in self.game.players
+                    ]
+                    if current_state != State.BIDDING:
+                        overlay_text.append("-" * 15)
+                        overlay_text.append(
+                            f"Cards in stock: {self.game.get_cards_in_stock()}"
+                        )
+                elif current_state == State.PLAYING:
+                    overlay_text = [str(player) for player in self.game.players]
+
+                overlay["new_card"]["delay"] += 1
+                overlay["state"]["delay"] += 1
+                overlay["subround_winner"]["delay"] += 1
+                overlay["round_winner"]["delay"] += 1
+
+                if overlay["new_card"]["delay"] % INFO_RESET_DELAY == 0:
+                    overlay["new_card"]["value"] = None
+
+                if self.game.new_card is not None:
+                    overlay["new_card"]["value"] = self.game.new_card
+                    overlay["new_card"]["delay"] = 0
+
+                if overlay["new_card"]["value"] is not None:
+                    overlay_text.append("-" * 15)
+                    overlay_text.append(f"New card: {overlay['new_card']['value']}")
+
+                if overlay["state"]["delay"] % INFO_RESET_DELAY == 0:
+                    overlay["state"]["value"] = None
+
+                if current_state != overlay["state"]["previous_value"]:
+                    overlay["state"]["value"] = current_state
+                    overlay["state"]["previous_value"] = current_state
+                    overlay["state"]["delay"] = 0
+
+                if overlay["state"]["value"] is not None:
+                    overlay_text.append("-" * 15)
+                    overlay_text.append(
+                        f"Entering {str(overlay['state']['value']).lower()} stage"
+                    )
+
+                if overlay["subround_winner"]["delay"] % INFO_RESET_DELAY == 0:
+                    overlay["subround_winner"]["value"] = None
+
+                if self.game.subround_winner is not None:
+                    overlay["subround_winner"]["value"] = self.game.subround_winner
+                    self.game.reset_subround_winner()
+
+                if overlay["subround_winner"]["value"] is not None:
+                    overlay_text.append("-" * 15)
+                    overlay_text.append(
+                        f"Player {overlay['subround_winner']['value']}. won the subround"
+                    )
+
+                if overlay["round_winner"]["delay"] % INFO_RESET_DELAY == 0:
+                    overlay["round_winner"]["value"] = None
+
+                if self.game.round_winner is not None:
+                    overlay["round_winner"]["value"] = self.game.round_winner
+                    self.game.reset_round_winner()
+
+                if overlay["round_winner"]["value"] is not None:
+                    overlay_text.append("-" * 15)
+                    overlay_text.append(
+                        f"Player {overlay['round_winner']['value']}. won the round"
+                    )
+
+                for i, txt in enumerate(overlay_text):
+                    cv2.putText(
+                        frame, txt, (10, 20 + i * 20), font, 1, (255, 255, 255), 1,
+                    )
+
+
+                cv2.imshow("frame", cv2.cvtColor(frame, cv2.COLOR_RGB2BGR))
+                if cv2.waitKey(25) & 0xFF == ord("q"):
+                    break
+
+                frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
+                out.write(frame.astype('uint8'))
+
+        out.release()
         cap.release()
         cv2.destroyAllWindows()
         # TODO: Get points from game

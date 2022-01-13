@@ -38,6 +38,19 @@ class Game:
         self._round_starting_player: int = 0
         self._cards_in_round: List[Card] = []
 
+        self.new_card = None
+        self.subround_winner = None
+        self.round_winner = None
+
+    def get_cards_in_stock(self):
+        return self._cards_in_stock
+
+    def reset_subround_winner(self):
+        self.subround_winner = None
+
+    def reset_round_winner(self):
+        self.round_winner = None
+
     def check_points(self) -> bool:
         for player in self.players:
             if player.get_total_score() >= 1000:
@@ -154,6 +167,8 @@ class Game:
 
             del self._cards_in_round[king_card_ind]
             winning_player.update_cards_won(self._cards_in_round)
+            self.subround_winner = winning_player.get_id()
+
             if self._verbose in (Verboser.INFO, Verboser.DEBUG):
                 print(f"\nPlayer {winning_player.get_id()}. won the round!")
 
@@ -168,6 +183,8 @@ class Game:
                 )
 
             winning_player.update_cards_won(self._cards_in_round)
+            self.subround_winner = winning_player.get_id() 
+
             if self._verbose in (Verboser.INFO, Verboser.DEBUG):
                 print(f"\nPlayer {winning_player.get_id()}. won the round!")
 
@@ -203,7 +220,9 @@ class Game:
         cards_vals = cut_cards[NAME].value_counts().reset_index()
         new_card = None
         if not cards_vals.empty:
-            new_card, _ = cards_vals.iloc[cards_vals[NAME].idxmax()].replace({np.nan: None})
+            new_card, _ = cards_vals.iloc[cards_vals[NAME].idxmax()].replace(
+                {np.nan: None}
+            )
 
         if self._verbose == Verboser.DEBUG:
             print("\nDetected:", detected_set)
@@ -217,6 +236,7 @@ class Game:
 
             print(f"New card: {new_card}\n")
 
+        self.new_card = new_card
         return new_card
 
     def _dealing_stage(self, detected_cards: pd.DataFrame):
@@ -253,10 +273,10 @@ class Game:
             self._card_for_player %= self._no_players
 
         if self._verbose in (Verboser.INFO, Verboser.DEBUG):
-            print()
+            print("-"*20)
             for player in self.players:
                 print(f"Player {player.get_id()}. has {player.get_no_cards()} cards")
-            print("-----------")
+            print("-"*20)
             print(f"Cards in stock: {self._cards_in_stock}\n")
 
         self._cards_dealt.update({card})
@@ -287,11 +307,12 @@ class Game:
                 raise Exception("Wrong detection, game cannot be continued!")
 
             if self._verbose in (Verboser.INFO, Verboser.DEBUG):
+                print("-" * 20)
                 for player in self.players:
                     print(
                         f"Player {player.get_id()}. has {player.get_no_cards()} cards"
                     )
-                print("-----------")
+                print("-" * 20)
                 print(f"Cards in stock: {self._cards_in_stock}\n")
 
     def _bidding_stage(self):
@@ -378,4 +399,5 @@ class Game:
             if self._verbose == Verboser.DEBUG:
                 print("Game ending...")
 
+            self.round_winner = self.winner
             return self.winner

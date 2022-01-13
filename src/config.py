@@ -1,6 +1,5 @@
 import json
 
-
 CARDS = "cards"
 TRUMPS = "trumps"
 

@@ -56,7 +56,7 @@ class Player:
         self._cards_won = []
 
     def __str__(self) -> str:
-        return f"Player {self._id}, score: {self._total_score}"
+        return f"Player {self._id}. score: {self._total_score}"
 
     def __repr__(self) -> str:
         return self.__str__()
